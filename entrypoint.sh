@@ -1,0 +1,31 @@
+#!/bin/sh
+set -e
+
+case "$PIPELINE" in
+  bank)
+    exec python -m ingestion.bank.pipeline "$@"
+    ;;
+  bank-service)
+    exec gunicorn --bind "0.0.0.0:${PORT:-8080}" --workers 1 --threads 8 ingestion.bank.service:app
+    ;;
+  investment)
+    exec python -m ingestion.investment.pipeline "$@"
+    ;;
+  cpf)
+    exec python -m ingestion.cpf.pipeline "$@"
+    ;;
+  ssb)
+    exec python -m ingestion.ssb.pipeline --from-gcs "$@"
+    ;;
+  dbt)
+    exec dbt run \
+      --project-dir /app/dbt/clairvoyance \
+      --profiles-dir /app/dbt/clairvoyance \
+      --target prod \
+      "$@"
+    ;;
+  *)
+    echo "ERROR: Unknown PIPELINE='$PIPELINE'. Valid values: bank | investment | cpf | ssb | dbt" >&2
+    exit 1
+    ;;
+esac

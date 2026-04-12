@@ -1,0 +1,11 @@
+clairvoyance:
+  target: prod
+  outputs:
+    prod:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('GCP_PROJECT_ID') }}"
+      dataset: dwd
+      location: asia-southeast1
+      threads: 4
+      timeout_seconds: 300

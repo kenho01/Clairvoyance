@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Clairvoyance — Dashboard Mockup</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0d1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      padding: 18px 32px;
+      border-bottom: 1px solid #1e2330;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.1em; color: #a78bfa; }
+    .header-right { display: flex; align-items: center; gap: 16px; }
+
+    /* ── Date Filter ── */
+    .date-filter {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #161b27;
+      border: 1px solid #2d3748;
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-size: 0.78rem;
+      color: #94a3b8;
+      cursor: pointer;
+    }
+    .date-filter svg { opacity: 0.6; }
+    .date-filter .range { color: #e2e8f0; font-weight: 500; }
+    .last-updated { font-size: 0.72rem; color: #475569; }
+
+    /* ── Main layout ── */
+    .page {
+      padding: 20px 32px;
+      max-width: 1440px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ── KPI Row ── */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    .kpi {
+      background: #161b27;
+      border: 1px solid #1e2330;
+      border-radius: 12px;
+      padding: 18px 22px;
+    }
+    .kpi .label { font-size: 0.68rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.09em; margin-bottom: 8px; }
+    .kpi .value { font-size: 1.65rem; font-weight: 700; letter-spacing: -0.02em; }
+    .kpi .delta { font-size: 0.74rem; margin-top: 6px; display: flex; align-items: center; gap: 4px; }
+    .kpi .sub   { font-size: 0.74rem; margin-top: 6px; color: #475569; }
+
+    .green  { color: #34d399; }
+    .red    { color: #f87171; }
+    .purple { color: #a78bfa; }
+    .blue   { color: #60a5fa; }
+    .amber  { color: #fbbf24; }
+    .muted  { color: #64748b; }
+
+    /* ── Grid rows ── */
+    .row {
+      display: grid;
+      gap: 16px;
+    }
+    .row-2-1 { grid-template-columns: 2fr 1fr; }
+    .row-3   { grid-template-columns: 1fr 1fr 1fr; }
+    .row-2-1-sm { grid-template-columns: 2fr 1fr; }
+
+    /* ── Cards ── */
+    .card {
+      background: #161b27;
+      border: 1px solid #1e2330;
+      border-radius: 12px;
+      padding: 18px 22px;
+    }
+
+    .card-title {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      color: #475569;
+      margin-bottom: 16px;
+    }
+
+    canvas { width: 100% !important; }
+
+    /* ── Stacked pair ── */
+    .stack { display: flex; flex-direction: column; gap: 16px; }
+
+    /* ── Top Merchants Table ── */
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    th {
+      text-align: left;
+      color: #475569;
+      font-weight: 500;
+      padding: 5px 0;
+      border-bottom: 1px solid #1e2330;
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+    }
+    td { padding: 8px 0; border-bottom: 1px solid #161b27; color: #cbd5e1; }
+    td.amt { text-align: right; color: #f87171; font-variant-numeric: tabular-nums; font-size: 0.82rem; }
+    td.badge { text-align: right; padding-right: 4px; }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-size: 0.66rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+    }
+    .p-transport { background: #1a2f4a; color: #60a5fa; }
+    .p-dining    { background: #2d1a1a; color: #f87171; }
+    .p-shopping  { background: #221633; color: #c084fc; }
+    .p-utilities { background: #112820; color: #34d399; }
+    .p-other     { background: #1e2330; color: #94a3b8; }
+    .p-entertain { background: #2a1f10; color: #fbbf24; }
+
+    /* ── Savings Rate ── */
+
+    /* ── CPF breakdown inline labels ── */
+    .cpf-legend {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .cpf-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.78rem;
+    }
+    .cpf-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-right: 7px;
+    }
+    .cpf-left { display: flex; align-items: center; color: #94a3b8; }
+    .cpf-right { color: #e2e8f0; font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>CLAIRVOYANCE</h1>
+  <div class="header-right">
+    <div class="date-filter">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+        <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+      <span>Date Range:</span>
+      <span class="range">Jan 2026 – Apr 2026</span>
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline points="6 9 12 15 18 9"/>
+      </svg>
+    </div>
+    <span class="last-updated">Updated 12 Apr 2026 · SGD</span>
+  </div>
+</header>
+
+<div class="page">
+
+  <!-- ── Row 1: KPIs ── -->
+  <div class="kpi-row">
+    <div class="kpi">
+      <div class="label">Total Net Worth</div>
+      <div class="value purple">S$142,830</div>
+      <div class="delta green">▲ +2.4% vs last month</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Net Worth excl. CPF</div>
+      <div class="value blue">S$98,420</div>
+      <div class="delta green">▲ +3.1% vs last month</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Monthly Spend</div>
+      <div class="value red">S$1,030</div>
+      <div class="delta muted">▼ −12% vs last month</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Total SSB</div>
+      <div class="value amber">S$5,500</div>
+      <div class="delta muted">Singapore Savings Bonds</div>
+    </div>
+  </div>
+
+  <!-- ── Row 2: Net Worth + Portfolio Allocation ── -->
+  <div class="row row-2-1">
+
+    <div class="card">
+      <div class="card-title">Net Worth Over Time (SGD)</div>
+      <canvas id="netWorthChart" height="130"></canvas>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Portfolio Allocation</div>
+      <canvas id="allocationChart" height="175"></canvas>
+    </div>
+
+  </div>
+
+  <!-- ── Row 3: Monthly Spend + CPF Breakdown ── -->
+  <div class="row row-2-1">
+
+    <div class="card">
+      <div class="card-title">Monthly Spend by Category (SGD)</div>
+      <canvas id="spendChart" height="130"></canvas>
+    </div>
+
+    <div class="card">
+      <div class="card-title">CPF Breakdown</div>
+      <canvas id="cpfChart" height="140"></canvas>
+      <div class="cpf-legend">
+        <div class="cpf-item">
+          <div class="cpf-left">
+            <div class="cpf-dot" style="background:#60a5fa"></div>Ordinary Account
+          </div>
+          <div class="cpf-right blue">S$28,400</div>
+        </div>
+        <div class="cpf-item">
+          <div class="cpf-left">
+            <div class="cpf-dot" style="background:#a78bfa"></div>Special Account
+          </div>
+          <div class="cpf-right purple">S$9,800</div>
+        </div>
+        <div class="cpf-item">
+          <div class="cpf-left">
+            <div class="cpf-dot" style="background:#34d399"></div>Medisave
+          </div>
+          <div class="cpf-right green">S$6,210</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Row 4: Top Merchants ── -->
+  <div class="row">
+
+    <div class="card">
+      <div class="card-title">Top Merchants</div>
+      <table>
+        <thead>
+          <tr><th>Merchant</th><th></th><th style="text-align:right">Spend</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Shopee Singapore</td>
+            <td class="badge"><span class="pill p-shopping">Shopping</span></td>
+            <td class="amt">S$258.94</td>
+          </tr>
+          <tr>
+            <td>SP Digital</td>
+            <td class="badge"><span class="pill p-utilities">Utilities</span></td>
+            <td class="amt">S$165.24</td>
+          </tr>
+          <tr>
+            <td>IKEA Online</td>
+            <td class="badge"><span class="pill p-shopping">Shopping</span></td>
+            <td class="amt">S$99.90</td>
+          </tr>
+          <tr>
+            <td>Singtel / GOMO</td>
+            <td class="badge"><span class="pill p-utilities">Utilities</span></td>
+            <td class="amt">S$68.90</td>
+          </tr>
+          <tr>
+            <td>Klook</td>
+            <td class="badge"><span class="pill p-other">Travel</span></td>
+            <td class="amt">S$50.25</td>
+          </tr>
+          <tr>
+            <td>BUS / MRT</td>
+            <td class="badge"><span class="pill p-transport">Transport</span></td>
+            <td class="amt">S$47.56</td>
+          </tr>
+          <tr>
+            <td>Sushi Express Funan</td>
+            <td class="badge"><span class="pill p-dining">Dining</span></td>
+            <td class="amt">S$39.20</td>
+          </tr>
+          <tr>
+            <td>Netflix / Spotify</td>
+            <td class="badge"><span class="pill p-entertain">Entertainment</span></td>
+            <td class="amt">S$28.50</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+
+  </div>
+
+</div>
+
+<script>
+  const grid  = '#1e2330';
+  const muted = '#475569';
+  Chart.defaults.color = muted;
+  Chart.defaults.borderColor = grid;
+
+  // ── Net Worth Stacked Area ──
+  new Chart(document.getElementById('netWorthChart'), {
+    type: 'line',
+    data: {
+      labels: ['Sep','Oct','Nov','Dec','Jan','Feb','Mar'],
+      datasets: [
+        { label: 'Cash',   data: [11200,12400,13100,11800,14300,15600,16200], borderColor:'#34d399', backgroundColor:'rgba(52,211,153,0.15)', fill:true, tension:0.4, pointRadius:2 },
+        { label: 'SSB',    data: [5000, 5000, 5000, 5000, 5500, 5500, 5500],  borderColor:'#fbbf24', backgroundColor:'rgba(251,191,36,0.15)',  fill:true, tension:0.4, pointRadius:2 },
+        { label: 'CPF',    data: [38000,39000,40000,41500,42000,43000,44410], borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,0.15)', fill:true, tension:0.4, pointRadius:2 },
+        { label: 'Crypto', data: [18000,19500,17200,17200,21000,23800,24600], borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,0.12)',  fill:true, tension:0.4, pointRadius:2 },
+        { label: 'Stocks', data: [48000,50000,50000,44300,46000,47700,51120], borderColor:'#60a5fa', backgroundColor:'rgba(96,165,250,0.12)',  fill:true, tension:0.4, pointRadius:2 },
+      ]
+    },
+    options: {
+      plugins: { legend: { position:'bottom', labels:{ padding:14, font:{ size:11 } } } },
+      scales: {
+        x: { grid:{ color:grid } },
+        y: { stacked:true, grid:{ color:grid }, ticks:{ callback: v => 'S$'+(v/1000).toFixed(0)+'k' } }
+      }
+    }
+  });
+
+  // ── Portfolio Allocation Doughnut ──
+  new Chart(document.getElementById('allocationChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Stocks','Crypto','CPF','Cash','SSB'],
+      datasets: [{ data:[35,17,31,11,6], backgroundColor:['#60a5fa','#f59e0b','#a78bfa','#34d399','#fbbf24'], borderWidth:0, hoverOffset:6 }]
+    },
+    options: {
+      cutout:'68%',
+      plugins: { legend:{ position:'bottom', labels:{ padding:12, font:{ size:11 } } } }
+    }
+  });
+
+  // ── Monthly Spend Stacked Bar ──
+  new Chart(document.getElementById('spendChart'), {
+    type: 'bar',
+    data: {
+      labels: ['Nov','Dec','Jan','Feb','Mar'],
+      datasets: [
+        { label:'Dining',       data:[210,356,444,296,347], backgroundColor:'#f87171' },
+        { label:'Transport',    data:[88, 96, 185,106,63],  backgroundColor:'#60a5fa' },
+        { label:'Shopping',     data:[280,331,548,347,72],  backgroundColor:'#c084fc' },
+        { label:'Utilities',    data:[230,270,142,263,15],  backgroundColor:'#34d399' },
+        { label:'Entertainment',data:[0,  26, 754,71, 2],   backgroundColor:'#fbbf24' },
+        { label:'Other',        data:[160,41, 166,113,875], backgroundColor:'#475569' },
+      ]
+    },
+    options: {
+      plugins: { legend:{ position:'bottom', labels:{ padding:12, font:{ size:11 } } } },
+      scales: {
+        x: { stacked:true, grid:{ color:grid } },
+        y: { stacked:true, grid:{ color:grid }, ticks:{ callback: v => 'S$'+v } }
+      }
+    }
+  });
+
+  // ── CPF Pie ──
+  new Chart(document.getElementById('cpfChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['OA','SA','MA'],
+      datasets: [{ data:[28400,9800,6210], backgroundColor:['#60a5fa','#a78bfa','#34d399'], borderWidth:0, hoverOffset:5 }]
+    },
+    options: {
+      cutout:'62%',
+      plugins: { legend:{ display:false } }
+    }
+  });
+
+</script>
+</body>
+</html>
