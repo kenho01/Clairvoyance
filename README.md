@@ -4,7 +4,7 @@ A personal finance data pipeline that automatically ingests bank statements, inv
 
 ## Architecture
 
-![Architecture Diagram](images/Project%20-%20Clarity%20Architecture%20Diagram(1).png)
+![Architecture Diagram](images/ArchitectureDiagram.png)
 
 ## Pipelines
 
