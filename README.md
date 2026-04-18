@@ -193,6 +193,3 @@ python -m ingestion.investment.pipeline
 pytest
 ```
 
-## Monthly Operations
-
-See [`docs/monthly_operations.md`](docs/monthly_operations.md) for what to do each month (bank statements, CPF, SSB).
