@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import io
 import os
-from datetime import date
 from pathlib import Path
 
 import pandas as pd
@@ -40,8 +39,8 @@ def _load_to_bigquery(df: pd.DataFrame, project_id: str) -> None:
     job_config = bigquery.LoadJobConfig(
         write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
         schema=[
-            bigquery.SchemaField("ingested_at",    "TIMESTAMP"),
-            bigquery.SchemaField("snapshot_date",  "DATE"),
+            bigquery.SchemaField("etl_time",       "TIMESTAMP"),
+            bigquery.SchemaField("date",           "DATE"),
             bigquery.SchemaField("issue_code",     "STRING"),
             bigquery.SchemaField("issue_date",     "DATE"),
             bigquery.SchemaField("maturity_date",  "DATE"),
@@ -63,14 +62,14 @@ def run(bucket_name: str, project_id: str, local_csv: Path | None = None) -> pd.
         print(f"Reading from gs://{bucket_name}/{_GCS_CSV_PATH}")
         df = _read_csv_from_gcs(bucket_name, project_id)
 
-    today = date.today()
-    df["ingested_at"]   = pd.Timestamp.now(tz="UTC")
-    df["snapshot_date"] = today
+    now = pd.Timestamp.now(tz="Asia/Singapore")
+    df["etl_time"] = now
+    df["date"]     = now.date()
 
     print(f"  {len(df)} bond(s), total face value SGD {df['face_value'].sum():,.2f}")
     print(df[["issue_code", "issue_date", "maturity_date", "face_value"]].to_string(index=False))
 
-    month_prefix = today.strftime("%Y-%m")
+    month_prefix = now.strftime("%Y-%m")
     gcs_path     = f"raw/ssb/{month_prefix}/ssb_{month_prefix}.parquet"
 
     if bucket_name:

@@ -1,11 +1,3 @@
-"""
-LLM categoriser using Claude Haiku.
-
-Accepts a batch of raw transaction descriptions and returns each one
-tagged with a spending category. Batches transactions per call to
-minimise API round-trips.
-"""
-
 from __future__ import annotations
 
 import json
@@ -15,7 +7,6 @@ import anthropic
 
 from ingestion.bank.pdf_parser import RawTransaction
 
-# ── Allowed categories ─────────────────────────────────────────────────────────
 CATEGORIES = [
     "Groceries",
     "Dining",
@@ -29,8 +20,6 @@ CATEGORIES = [
     "Insurance",
     "Investment",
     "Transfer",
-    "Income",
-    "Reimbursement",
     "Other",
 ]
 
@@ -59,16 +48,9 @@ Specific merchant rules (override general classification):
 - CLAUDE.AI, CHATGPT, OPENAI, NOTION, SPOTIFY, NETFLIX, YOUTUBE → Entertainment
 - Transfers to crypto exchanges (GEMINI, BINANCE, COINBASE, CRYPTO.COM) → Investment
 - Transfers to brokers (IBKR, INTERACTIVE BROKERS, TIGER, MOOMOO, SYFE, ENDOWUS) → Investment
-- Incoming PayNow from a named person ("PAYNOW OTHR | PERSON NAME | ...") → Reimbursement
-- Outgoing PayNow to a named person → categorise by context (Dining if meal split, Transfer if large)
-- Merchant refunds via PayNow (company name in description) → same category as original purchase
-- Credit card bill payments on a Credit Card statement (e.g. "PAYMT THRU E-BANK", \
-  "PAYMT THRU INTERNET", "PAYMT THRU HOMEB", "PAYMENT - THANK YOU", "AUTOPAY") → Transfer
-- Any positive (credit) amount on a Credit Card statement that represents a bill payment → Transfer
-- Salary / payroll credits (e.g. "SALA", "SALARY", "PAYROLL", "SAL ") → Income
-- Government credits (e.g. "GOV", "GST VOUCHER", "CDC VOUCHER", "SKILLSFUTURE", "WORKFARE") → Income
-- Bank interest credits → Income
-- Cashback / rebate credits (e.g. "CASH REBATE", "CASHBACK", "REBATE") → Income
+- Transfers to YOU TECHNOLOGIES GRO  → Travel
+- PayNow/FAST transfers with amount < SGD 100 → Dining (likely splitting a meal bill or paying to merchant directly via QR code payment)
+- Otherwise PayNow/FAST transfers with amount > SGD 150 -> Label as Transfers
 
 Example output:
 [

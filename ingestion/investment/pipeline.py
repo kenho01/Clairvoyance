@@ -52,8 +52,8 @@ def _load_to_bigquery(df: pd.DataFrame, project_id: str) -> None:
     job_config = bigquery.LoadJobConfig(
         write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
         schema=[
-            bigquery.SchemaField("ingested_at",      "TIMESTAMP"),
-            bigquery.SchemaField("snapshot_date",    "DATE"),
+            bigquery.SchemaField("etl_time",         "TIMESTAMP"),
+            bigquery.SchemaField("date",             "DATE"),
             bigquery.SchemaField("source",           "STRING"),
             bigquery.SchemaField("symbol",           "STRING"),
             bigquery.SchemaField("asset_class",      "STRING"),
@@ -78,8 +78,8 @@ def run(sources: list[str], bucket_name: str, project_id: str) -> pd.DataFrame:
         return pd.DataFrame()
 
     df = pd.DataFrame([p.to_dict() for p in positions])
-    df["ingested_at"]   = pd.Timestamp.now(tz="UTC")
-    df["snapshot_date"] = pd.Timestamp.now(tz="UTC").date()
+    df["etl_time"] = pd.Timestamp.now(tz="Asia/Singapore")
+    df["date"]     = pd.Timestamp.now(tz="Asia/Singapore").date()
 
     print(f"\nCombined portfolio: {len(df)} positions across {df['source'].nunique()} source(s)")
     print(df[["source", "symbol", "asset_class", "quantity", "price", "market_value", "currency"]].to_string(index=False))

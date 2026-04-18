@@ -1,19 +1,7 @@
-project_id             = "your-gcp-project-id"
-region                 = "asia-southeast1"
-gcs_bucket_bank        = "clairvoyance-bank"
-gcs_bucket_investments = "clairvoyance-investments"
+project_id              = "your-gcp-project-id"
+region                  = "asia-southeast1"
+gcs_bucket_bank         = "your-bank-bucket-name"
+gcs_bucket_investments  = "your-investments-bucket-name"
 
-# Set after first `docker build && docker push` (see deployment steps below)
-pipeline_image         = ""
-
-# API secrets — these are written to Secret Manager on `terraform apply`.
-# Alternatively, leave blank here and set them manually via:
-#   gcloud secrets versions add SECRET_NAME --data-file=-
-anthropic_api_key      = ""
-gemini_api_key         = ""
-gemini_api_secret      = ""
-tiger_id               = ""
-tiger_account          = ""
-tiger_private_key      = ""
-ibkr_flex_token        = ""
-ibkr_flex_query_id     = ""
+# Set after: docker build --platform linux/amd64 + docker push
+pipeline_image  = "asia-southeast1-docker.pkg.dev/your-gcp-project-id/clairvoyance/pipeline:latest"

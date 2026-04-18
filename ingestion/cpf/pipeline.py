@@ -42,7 +42,7 @@ def _load_to_bigquery(df: pd.DataFrame, project_id: str) -> None:
     job_config = bigquery.LoadJobConfig(
         write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
         schema=[
-            bigquery.SchemaField("ingested_at",       "TIMESTAMP"),
+            bigquery.SchemaField("etl_time",          "TIMESTAMP"),
             bigquery.SchemaField("source_file",       "STRING"),
             bigquery.SchemaField("statement_date",    "DATE"),
             bigquery.SchemaField("ordinary_account",  "FLOAT64"),
@@ -68,7 +68,7 @@ def run(pdf_path: Path, bucket_name: str, project_id: str) -> pd.DataFrame:
     print(f"  Total CPF: SGD {snapshot.total:,.2f}")
 
     df = pd.DataFrame([{
-        "ingested_at":      pd.Timestamp.now(tz="UTC"),
+        "etl_time":         pd.Timestamp.now(tz="Asia/Singapore"),
         "source_file":      pdf_path.name,
         "statement_date":   snapshot.statement_date,
         "ordinary_account": snapshot.ordinary_account,

@@ -4,8 +4,8 @@ with raw as (
 
 cleaned as (
     select
-        cast(ingested_at as timestamp)  as ingested_at,
-        cast(snapshot_date as date)     as snapshot_date,
+        cast(etl_time as timestamp)  as etl_time,
+        cast(date as date) as date,
         source,
         symbol,
         asset_class,

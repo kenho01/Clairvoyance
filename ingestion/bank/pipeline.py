@@ -50,7 +50,7 @@ def _load_to_bigquery(df: pd.DataFrame, project_id: str) -> None:
     job_config = bigquery.LoadJobConfig(
         write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
         schema=[
-            bigquery.SchemaField("ingested_at",      "TIMESTAMP"),
+            bigquery.SchemaField("etl_time",         "TIMESTAMP"),
             bigquery.SchemaField("source_file",      "STRING"),
             bigquery.SchemaField("transaction_type", "STRING"),
             bigquery.SchemaField("date",             "STRING"),
@@ -77,7 +77,7 @@ def _load_balance_to_bigquery(
     table_ref = f"{project_id}.{_BQ_BALANCES_TABLE}"
 
     df = pd.DataFrame([{
-        "ingested_at":    pd.Timestamp.now(tz="UTC"),
+        "etl_time":       pd.Timestamp.now(tz="Asia/Singapore"),
         "source":         "uob_savings",
         "source_file":    source_file,
         "statement_date": statement_date,
@@ -88,7 +88,7 @@ def _load_balance_to_bigquery(
     job_config = bigquery.LoadJobConfig(
         write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
         schema=[
-            bigquery.SchemaField("ingested_at",    "TIMESTAMP"),
+            bigquery.SchemaField("etl_time",       "TIMESTAMP"),
             bigquery.SchemaField("source",         "STRING"),
             bigquery.SchemaField("source_file",    "STRING"),
             bigquery.SchemaField("statement_date", "STRING"),
@@ -134,7 +134,7 @@ def run(pdf_path: Path, bucket_name: str, project_id: str, source_filename: str 
     transactions = categorise(transactions)
 
     df = transactions_to_dataframe(transactions)
-    df["ingested_at"] = pd.Timestamp.now(tz="UTC")
+    df["etl_time"] = pd.Timestamp.now(tz="Asia/Singapore")
     df["source_file"] = original_name
 
     if bucket_name:

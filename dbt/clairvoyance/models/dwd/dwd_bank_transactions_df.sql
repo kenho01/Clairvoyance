@@ -58,7 +58,7 @@ cleaned as (
             coalesce(cast(amount as string), '')
         ))) as transaction_id,
 
-        cast(ingested_at as timestamp) as ingested_at,
+        cast(etl_time as timestamp) as etl_time,
         source_file,
         transaction_type,
         parse_date('%d %b %Y', date) as transaction_date,
@@ -67,7 +67,6 @@ cleaned as (
         amount,
         currency,
         category
-
     from overridden
     where category not in ('Transfer', 'Income', 'Reimbursement')   -- exclude payments, transfers, income, and friend reimbursements
 )

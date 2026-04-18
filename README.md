@@ -1,6 +1,6 @@
 # Clairvoyance
 
-A personal finance data pipeline that automatically ingests bank statements, investment positions, CPF balances, and Singapore Savings Bonds into BigQuery — then transforms them into a net worth and spending dashboard via dbt.
+A personal finance data pipeline that automatically ingests bank statements, investment positions, CPF balances, and Singapore Savings Bonds into BigQuery — then transforms them into a net worth and spending dashboard via dbt and Grafana.
 
 ## Architecture
 
@@ -32,26 +32,31 @@ ads   Dashboard-ready (pivoted net worth, MoM deltas, spend by category)
 
 | Table | Description |
 |---|---|
-| `ods.ods_bank_transactions_df` | Raw bank transactions with LLM categories |
-| `ods.ods_investment_positions_df` | Daily investment snapshots in SGD |
-| `ods.ods_account_balances_df` | Monthly savings account closing balances |
+| `ods.ods_bank_transactions_df` | Raw bank transactions with LLM-assigned categories |
+| `ods.ods_investment_positions_df` | Daily investment snapshots in native currency + SGD |
+| `ods.ods_account_balances_df` | Monthly UOB savings account closing balances |
 | `ods.ods_cpf_balances_df` | CPF OA / SA / MA balances per statement |
-| `ods.ods_ssb_holdings_df` | SSB holdings snapshot per run |
+| `ods.ods_ssb_holdings_df` | SSB holdings snapshot per pipeline run |
 | `dwd.dwd_bank_transactions_df` | Cleaned transactions (transfers, income, reimbursements excluded) |
-| `dws.dws_net_worth_history_df` | Monthly net worth by asset class |
-| `ads.ads_net_worth_dashboard_df` | Pivoted: stocks, crypto, cash, SSB, CPF per month |
-| `ads.ads_monthly_spend_dashboard_df` | Spend by category with MoM delta |
+| `dwd.dwd_investment_positions_df` | Cleaned positions with SGD normalisation |
+| `dws.dws_net_worth_history_df` | Monthly net worth by asset class and source |
+| `dws.dws_monthly_spend_df` | Monthly spend aggregated by category |
+| `dws.dws_monthly_savings_rate_df` | Monthly income, spend, and savings rate |
+| `ads.ads_net_worth_dashboard_df` | Monthly pivoted: stocks, crypto, cash, SSB, CPF — with carry-forward |
+| `ads.ads_net_worth_daily_df` | Daily pivoted net worth with day-over-day change |
+| `ads.ads_monthly_spend_dashboard_df` | Spend by category with MoM delta and % change |
 
 ## Transaction Categories
 
 The bank pipeline uses Claude Haiku to categorise transactions. Deterministic overrides in the dwd layer handle edge cases:
 
-| Category | Filtered from spend dashboard |
+| Category | Notes |
 |---|---|
-| Transfer | Yes — credit card payments, inter-account |
-| Income | Yes — salary, government credits, cashback |
-| Reimbursement | Yes — incoming PayNow from named people |
-| Groceries / Dining / Transport / etc. | No — shown in spend dashboard |
+| Groceries / Dining / Transport / Shopping / Entertainment / Utilities / Healthcare / Travel / Education / Insurance | Shown in spend dashboard |
+| Investment | Transfers to brokers and crypto exchanges |
+| Transfer | Credit card bill payments, inter-account transfers |
+| Income | Salary, government credits, cashback — excluded from spend |
+| Reimbursement | Incoming PayNow from named individuals — excluded from spend |
 
 ## Project Structure
 
@@ -84,6 +89,9 @@ terraform/
   variables.tf
   terraform.tfvars     ← gitignored, contains secrets
 
+assets/
+  grafana-dashboard.json   Grafana dashboard definition (import to Grafana Cloud)
+
 Dockerfile             Single image, PIPELINE env var routes entrypoint
 entrypoint.sh          Routes: bank | bank-service | investment | cpf | ssb | dbt
 ```
@@ -102,6 +110,18 @@ All GCP resources are managed in `terraform/`:
 - **Cloud Scheduler** — investment (daily), dbt (daily), ssb (monthly)
 - **Service Account** — `clairvoyance-pipeline` with least-privilege IAM roles
 
+## Dashboard
+
+Built in **Grafana Cloud** (free tier), connected directly to BigQuery via the BigQuery plugin.
+
+The dashboard definition lives at `assets/grafana-dashboard.json` — import it via Grafana → Dashboards → Import.
+
+Key data sources:
+- `ads.ads_net_worth_dashboard_df` — KPI cards and net worth time series
+- `ads.ads_net_worth_daily_df` — daily net worth with day-over-day change
+- `ads.ads_monthly_spend_dashboard_df` — spending by category bar chart
+- `dwd.dwd_bank_transactions_df` — recent transactions table
+
 ## Setup
 
 ### Prerequisites
@@ -117,9 +137,7 @@ All GCP resources are managed in `terraform/`:
 ```bash
 cp .env.example .env
 # Fill in your API keys
-```
 
-```bash
 cp terraform/terraform.tfvars.example terraform/terraform.tfvars
 # Fill in project_id, secrets, and bucket names
 ```
@@ -135,11 +153,9 @@ terraform apply
 ### 3. Build and push the Docker image
 
 ```bash
-# Authenticate Docker with Artifact Registry
 gcloud auth configure-docker asia-southeast1-docker.pkg.dev
 
-# Build for Cloud Run (linux/amd64)
-docker buildx build --platform linux/amd64 \
+docker build --platform linux/amd64 \
   -t asia-southeast1-docker.pkg.dev/<PROJECT_ID>/clairvoyance/pipeline:latest \
   --push .
 ```
@@ -155,30 +171,16 @@ pipeline_image = "asia-southeast1-docker.pkg.dev/<PROJECT_ID>/clairvoyance/pipel
 terraform apply
 ```
 
-### 5. Trigger pipelines
+### 5. Set up Grafana
 
-**Bank statements**: Upload a PDF to `gs://<bucket>/inbox/` — Eventarc fires automatically.
-
-**Investments**: Runs daily via Cloud Scheduler, or trigger manually:
-```bash
-gcloud run jobs execute clairvoyance-investment --region=asia-southeast1
-```
-
-**SSB**: Update `gs://<bucket>/config/ssb_holdings.csv` when you buy/redeem bonds:
-```csv
-issue_code,issue_date,maturity_date,face_value,currency
-GX26010A,2026-01-01,2036-01-01,500,SGD
-```
-
-**dbt**: Runs daily via Cloud Scheduler, or trigger manually:
-```bash
-gcloud run jobs execute clairvoyance-dbt --region=asia-southeast1
-```
+1. Sign up at [grafana.com](https://grafana.com) (free tier)
+2. Install the **Google BigQuery** plugin (Connections → Add new connection)
+3. Add a BigQuery data source using a GCP service account key with `roles/bigquery.dataViewer` and `roles/bigquery.jobUser`
+4. Import `assets/grafana-dashboard.json` via Dashboards → Import
 
 ## Local Development
 
 ```bash
-# Install dependencies
 pip install -e ".[dev]"
 
 # Run bank pipeline locally
@@ -191,13 +193,6 @@ python -m ingestion.investment.pipeline
 pytest
 ```
 
-## Dashboard
+## Monthly Operations
 
-Built in Google Looker Studio, connected directly to BigQuery.
-
-Key data sources:
-- `ads.ads_net_worth_dashboard_df` — net worth scorecards and time series
-- `ads.ads_monthly_spend_dashboard_df` — spending by category with MoM delta
-- `dwd.dwd_bank_transactions_df` — top merchants table
-
-A static HTML mockup is available at `docs/dashboard_mockup.html`.
+See [`docs/monthly_operations.md`](docs/monthly_operations.md) for what to do each month (bank statements, CPF, SSB).
