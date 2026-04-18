@@ -56,6 +56,13 @@ resource "google_storage_bucket" "bank" {
   }
 }
 
+resource "google_storage_bucket" "cpf" {
+  name                        = var.gcs_bucket_cpf
+  location                    = var.region
+  uniform_bucket_level_access = true
+  force_destroy               = false
+}
+
 resource "google_storage_bucket" "investments" {
   name                        = var.gcs_bucket_investments
   location                    = var.region
@@ -147,6 +154,7 @@ locals {
     { name = "GCP_PROJECT_ID",         value = var.project_id },
     { name = "GCS_BUCKET_BANK",        value = var.gcs_bucket_bank },
     { name = "GCS_BUCKET_INVESTMENTS", value = var.gcs_bucket_investments },
+    { name = "GCS_BUCKET_CPF",         value = var.gcs_bucket_cpf },
   ]
 
   all_secret_env = [
@@ -483,6 +491,85 @@ resource "google_cloud_run_v2_service_iam_member" "bank_service_invoker" {
   name     = google_cloud_run_v2_service.bank_service[0].name
   role     = "roles/run.invoker"
   member   = "serviceAccount:${google_service_account.pipeline_sa.email}"
+}
+
+# ── Cloud Run Service — CPF pipeline (Eventarc target) ────────────────────────
+resource "google_cloud_run_v2_service" "cpf_service" {
+  count    = local.image != "" ? 1 : 0
+  name     = "clairvoyance-cpf-service"
+  location = var.region
+
+  template {
+    service_account = google_service_account.pipeline_sa.email
+
+    containers {
+      image = local.image
+
+      env {
+        name  = "PIPELINE"
+        value = "cpf-service"
+      }
+
+      dynamic "env" {
+        for_each = local.common_plain_env
+        content {
+          name  = env.value.name
+          value = env.value.value
+        }
+      }
+
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "512Mi"
+        }
+      }
+    }
+
+    scaling {
+      min_instance_count = 0
+      max_instance_count = 1
+    }
+  }
+
+  depends_on = [google_project_service.apis]
+}
+
+# Allow Eventarc to invoke the CPF service
+resource "google_cloud_run_v2_service_iam_member" "cpf_service_invoker" {
+  count    = local.image != "" ? 1 : 0
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_service.cpf_service[0].name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.pipeline_sa.email}"
+}
+
+# ── Eventarc — CPF PDF trigger → Cloud Run Service ────────────────────────────
+resource "google_eventarc_trigger" "cpf_pdf_upload" {
+  count           = local.image != "" ? 1 : 0
+  name            = "clairvoyance-cpf-pdf-upload"
+  location        = var.region
+  service_account = google_service_account.pipeline_sa.email
+
+  matching_criteria {
+    attribute = "type"
+    value     = "google.cloud.storage.object.v1.finalized"
+  }
+
+  matching_criteria {
+    attribute = "bucket"
+    value     = var.gcs_bucket_cpf
+  }
+
+  destination {
+    cloud_run_service {
+      service = google_cloud_run_v2_service.cpf_service[0].name
+      region  = var.region
+    }
+  }
+
+  depends_on = [google_cloud_run_v2_service.cpf_service]
 }
 
 # ── Eventarc — bank PDF trigger → Cloud Run Service ───────────────────────────

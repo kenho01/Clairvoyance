@@ -8,6 +8,9 @@ case "$PIPELINE" in
   bank-service)
     exec gunicorn --bind "0.0.0.0:${PORT:-8080}" --workers 1 --threads 8 ingestion.bank.service:app
     ;;
+  cpf-service)
+    exec gunicorn --bind "0.0.0.0:${PORT:-8080}" --workers 1 --threads 8 ingestion.cpf.service:app
+    ;;
   investment)
     exec python -m ingestion.investment.pipeline "$@"
     ;;
@@ -25,7 +28,7 @@ case "$PIPELINE" in
       "$@"
     ;;
   *)
-    echo "ERROR: Unknown PIPELINE='$PIPELINE'. Valid values: bank | investment | cpf | ssb | dbt" >&2
+    echo "ERROR: Unknown PIPELINE='$PIPELINE'. Valid values: bank | bank-service | investment | cpf | cpf-service | ssb | dbt" >&2
     exit 1
     ;;
 esac

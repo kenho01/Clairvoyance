@@ -19,6 +19,11 @@ variable "gcs_bucket_investments" {
   type        = string
 }
 
+variable "gcs_bucket_cpf" {
+  description = "GCS bucket name for CPF PDF uploads (Eventarc trigger source)"
+  type        = string
+}
+
 variable "pipeline_image" {
   description = "Container image URI (Artifact Registry) for all pipelines — set after first docker push"
   type        = string
