@@ -12,7 +12,7 @@ A personal finance data pipeline that automatically ingests bank statements, inv
 |---|---|---|
 | `bank` | PDF dropped in GCS `inbox/` via Eventarc | Parses UOB savings & credit card PDFs, categorises transactions with Claude Haiku, loads to BQ |
 | `investment` | Cloud Scheduler — daily 6am SGT | Fetches positions from Tiger Brokers, IBKR Flex, and Gemini; converts to SGD; loads to BQ |
-| `cpf` | PDF dropped in GCS `inbox/` via Eventarc | Parses CPF Account Balances PDF (OA, SA, MA), loads to BQ |
+| `cpf` | PDF dropped in GCS bucket root via Eventarc | Parses CPF Account Balances PDF (OA, SA, MA), loads to BQ |
 | `ssb` | Cloud Scheduler — 1st of month 9am SGT | Reads `ssb_holdings.csv` from GCS `config/`, loads snapshot to BQ |
 | `dbt` | Cloud Scheduler — daily 6:30am SGT | Runs dbt transformations across dwd → dws → ads layers |
 
@@ -101,12 +101,12 @@ entrypoint.sh          Routes: bank | bank-service | investment | cpf | ssb | db
 All GCP resources are managed in `terraform/`:
 
 - **Artifact Registry** — Docker image repository
-- **GCS buckets** — bank and investments storage
+- **GCS buckets** — bank, CPF, and investments storage
 - **BigQuery datasets** — ods, dwd, dws, ads
 - **Secret Manager** — API keys for Anthropic, Tiger, IBKR, Gemini
 - **Cloud Run Jobs** — bank, investment, cpf, ssb, dbt
 - **Cloud Run Service** — bank-service (Eventarc target)
-- **Eventarc trigger** — fires on GCS `object.finalized` in bank bucket
+- **Eventarc triggers** — fires on GCS `object.finalized` in bank bucket (`inbox/`) and CPF bucket (root)
 - **Cloud Scheduler** — investment (daily), dbt (daily), ssb (monthly)
 - **Service Account** — `clairvoyance-pipeline` with least-privilege IAM roles
 

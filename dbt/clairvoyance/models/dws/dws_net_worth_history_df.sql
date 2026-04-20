@@ -17,12 +17,25 @@ bank_balances as (
     group by date, source, asset_class
 ),
 
+cpf_latest as (
+    select *
+    from (
+        select *,
+            row_number() over (
+                partition by date_trunc(statement_date, month)
+                order by statement_date desc
+            ) as rn
+        from `{{ env_var('GCP_PROJECT_ID') }}.ods.ods_cpf_balances_df`
+    )
+    where rn = 1
+),
+
 cpf_balances as (
-    select date_trunc(statement_date, month) as date, 'cpf' as source, 'cpf_oa' as asset_class, round(ordinary_account, 2) as market_value_sgd from `{{ env_var('GCP_PROJECT_ID') }}.ods.ods_cpf_balances_df`
+    select date_trunc(statement_date, month) as date, 'cpf' as source, 'cpf_oa' as asset_class, round(ordinary_account, 2) as market_value_sgd from cpf_latest
     union all
-    select date_trunc(statement_date, month), 'cpf', 'cpf_sa', round(special_account, 2)   from `{{ env_var('GCP_PROJECT_ID') }}.ods.ods_cpf_balances_df`
+    select date_trunc(statement_date, month), 'cpf', 'cpf_sa', round(special_account, 2)   from cpf_latest
     union all
-    select date_trunc(statement_date, month), 'cpf', 'cpf_ma', round(medisave_account, 2)  from `{{ env_var('GCP_PROJECT_ID') }}.ods.ods_cpf_balances_df`
+    select date_trunc(statement_date, month), 'cpf', 'cpf_ma', round(medisave_account, 2)  from cpf_latest
 ),
 
 investment_daily as (
