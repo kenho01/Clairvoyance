@@ -85,12 +85,20 @@ def run(sources: list[str], bucket_name: str, project_id: str) -> pd.DataFrame:
     print(df[["source", "symbol", "asset_class", "quantity", "price", "market_value", "currency"]].to_string(index=False))
 
     if bucket_name:
-        _upload_parquet_to_gcs(df, bucket_name, project_id)
+        try:
+            _upload_parquet_to_gcs(df, bucket_name, project_id)
+        except Exception as e:
+            print(f"ERROR: GCS upload failed — {e}")
+            raise
     else:
         print("GCS_BUCKET_INVESTMENTS not set — skipping GCS upload")
 
     if project_id:
-        _load_to_bigquery(df, project_id)
+        try:
+            _load_to_bigquery(df, project_id)
+        except Exception as e:
+            print(f"ERROR: BigQuery load failed — {e}")
+            raise
     else:
         print("GCP_PROJECT_ID not set — skipping BigQuery load")
 
@@ -109,11 +117,17 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    run(
-        sources=args.sources,
-        bucket_name=os.environ.get("GCS_BUCKET_INVESTMENTS", ""),
-        project_id=os.environ.get("GCP_PROJECT_ID", ""),
-    )
+    try:
+        run(
+            sources=args.sources,
+            bucket_name=os.environ.get("GCS_BUCKET_INVESTMENTS", ""),
+            project_id=os.environ.get("GCP_PROJECT_ID", ""),
+        )
+    except Exception as e:
+        import traceback
+        print(f"FATAL: pipeline failed — {e}")
+        traceback.print_exc()
+        raise
 
 
 if __name__ == "__main__":

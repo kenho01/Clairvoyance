@@ -15,13 +15,26 @@ bank_balances as (
     group by date
 ),
 
+cpf_latest as (
+    select *
+    from (
+        select *,
+            row_number() over (
+                partition by date_trunc(statement_date, month)
+                order by statement_date desc
+            ) as rn
+        from `{{ env_var('GCP_PROJECT_ID') }}.ods.ods_cpf_balances_df`
+    )
+    where rn = 1
+),
+
 cpf_balances as (
     select
         date_trunc(statement_date, month)  as date,
         round(ordinary_account, 2) as cpf_oa_sgd,
         round(special_account, 2) as cpf_sa_sgd,
         round(medisave_account, 2) as cpf_ma_sgd
-    from `{{ env_var('GCP_PROJECT_ID') }}.ods.ods_cpf_balances_df`
+    from cpf_latest
 ),
 
 ssb_latest as (
