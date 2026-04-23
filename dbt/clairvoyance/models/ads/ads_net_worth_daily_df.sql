@@ -15,6 +15,14 @@ bank_balances as (
     group by date
 ),
 
+bank_balances_ranged as (
+    select
+        date,
+        cash_sgd,
+        lead(date, 1, date '9999-12-31') over (order by date) as next_date
+    from bank_balances
+),
+
 cpf_latest as (
     select *
     from (
@@ -69,7 +77,9 @@ joined as (
         c.cpf_ma_sgd,
         s.ssb_sgd
     from investment_daily i
-    left join bank_balances b on b.date = date_trunc(i.date, month)
+    left join bank_balances_ranged b
+        on date_trunc(i.date, month) >= b.date
+        and date_trunc(i.date, month) < b.next_date
     left join cpf_balances c on c.date = date_trunc(i.date, month)
     left join ssb_balances s on s.date = date_trunc(i.date, month)
 ),
