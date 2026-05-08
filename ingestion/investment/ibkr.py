@@ -30,7 +30,7 @@ def _request_report(token: str, query_id: str) -> str:
     resp = requests.get(
         _SEND_URL,
         params={"t": token, "q": query_id, "v": 3},
-        timeout=30,
+        timeout=60,
     )
     resp.raise_for_status()
     root = ET.fromstring(resp.text)
@@ -46,7 +46,7 @@ def _download_report(token: str, reference_code: str, retries: int = 5) -> str:
         resp = requests.get(
             _GET_URL,
             params={"t": token, "q": reference_code, "v": 3},
-            timeout=30,
+            timeout=60,
         )
         resp.raise_for_status()
         # CSV report is ready when it doesn't start with XML tags
