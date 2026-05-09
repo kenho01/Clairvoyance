@@ -35,9 +35,24 @@ def _upload_parquet_to_gcs(df: pd.DataFrame, bucket_name: str, object_path: str,
     print(f"Uploaded to gs://{bucket_name}/{object_path}")
 
 
+def _already_loaded(client: bigquery.Client, project_id: str, statement_date) -> bool:
+    query = f"""
+        SELECT COUNT(*) AS cnt
+        FROM `{project_id}.{_BQ_TABLE}`
+        WHERE statement_date = '{statement_date}'
+    """
+    result = client.query(query).result()
+    return next(iter(result)).cnt > 0
+
+
 def _load_to_bigquery(df: pd.DataFrame, project_id: str) -> None:
     client    = bigquery.Client(project=project_id)
     table_ref = f"{project_id}.{_BQ_TABLE}"
+
+    statement_date = df["statement_date"].iloc[0]
+    if _already_loaded(client, project_id, statement_date):
+        print(f"CPF snapshot for {statement_date} already exists — skipping")
+        return
 
     job_config = bigquery.LoadJobConfig(
         write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
