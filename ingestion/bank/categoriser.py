@@ -19,6 +19,7 @@ CATEGORIES = [
     "Education",
     "Insurance",
     "Investment",
+    "Endowus",
     "Transfer",
     "Other",
 ]
@@ -47,7 +48,8 @@ Specific merchant rules (override general classification):
 - KLOOK → Travel
 - CLAUDE.AI, CHATGPT, OPENAI, NOTION, SPOTIFY, NETFLIX, YOUTUBE → Entertainment
 - Transfers to crypto exchanges (GEMINI, BINANCE, COINBASE, CRYPTO.COM) → Investment
-- Transfers to brokers (IBKR, INTERACTIVE BROKERS, TIGER, MOOMOO, SYFE, ENDOWUS) → Investment
+- Transfers to brokers (IBKR, INTERACTIVE BROKERS, TIGER, MOOMOO, SYFE) → Investment
+- Transfers to Endowus via UOB Kay Hian (description contains "UOB KAY HIAN") → Endowus
 - Transfers to YOU TECHNOLOGIES GRO  → Travel
 - PayNow/FAST transfers with amount < SGD 100 → Dining (likely splitting a meal bill or paying to merchant directly via QR code payment)
 - Otherwise PayNow/FAST transfers with amount > SGD 150 -> Label as Transfers

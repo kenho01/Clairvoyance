@@ -54,28 +54,23 @@ investment_daily as (
     group by date_trunc(date, month), source, asset_class
 ),
 
-ssb_latest as (
-    -- keep only the most recent snapshot per calendar month
-    select *
-    from (
-        select *,
-            row_number() over (
-                partition by date_trunc(date, month)
-                order by date desc
-            ) as rn
-        from `{{ env_var('GCP_PROJECT_ID') }}.ods.ods_ssb_holdings_df`
-    )
-    where rn = 1
+endowus_monthly as (
+    select
+        date_trunc(parse_date('%d %b %Y', date), month) as month,
+        round(sum(abs(amount)), 2) as monthly_sgd
+    from `{{ env_var('GCP_PROJECT_ID') }}.ods.ods_bank_transactions_df`
+    where category = 'Endowus'
+      and amount < 0
+    group by 1
 ),
 
-ssb_balances as (
+endowus_cumulative as (
     select
-        date_trunc(date, month)  as date,
-        'ssb' as source,
-        'ssb' as asset_class,
-        round(sum(face_value), 2) as market_value_sgd
-    from ssb_latest
-    group by date, source, asset_class
+        month as date,
+        'endowus' as source,
+        'endowus' as asset_class,
+        round(sum(monthly_sgd) over (order by month rows between unbounded preceding and current row), 2) as market_value_sgd
+    from endowus_monthly
 ),
 
 combined as (
@@ -85,7 +80,7 @@ combined as (
     union all
     select date, source, asset_class, market_value_sgd from cpf_balances
     union all
-    select date, source, asset_class, market_value_sgd from ssb_balances
+    select date, source, asset_class, market_value_sgd from endowus_cumulative
 )
 
 select * from combined

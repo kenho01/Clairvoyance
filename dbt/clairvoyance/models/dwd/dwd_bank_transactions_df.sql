@@ -7,6 +7,10 @@ overridden as (
     select
         * replace(
             case
+                -- Endowus funding via UOB Kay Hian transfer
+                when amount < 0
+                     and upper(description) like '%UOB KAY HIAN%'
+                then 'Endowus'
                 -- Credit card bill payments
                 when transaction_type = 'Credit Card'
                      and amount > 0
@@ -68,7 +72,7 @@ cleaned as (
         currency,
         category
     from overridden
-    where category not in ('Transfer', 'Income', 'Reimbursement')   -- exclude payments, transfers, income, and friend reimbursements
+    where category not in ('Transfer', 'Income', 'Reimbursement', 'Endowus')   -- exclude payments, transfers, income, reimbursements, and Endowus funding (tracked separately as principal)
 )
 
 select * from cleaned

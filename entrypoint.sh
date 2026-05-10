@@ -17,9 +17,6 @@ case "$PIPELINE" in
   cpf)
     exec python -m ingestion.cpf.pipeline "$@"
     ;;
-  ssb)
-    exec python -m ingestion.ssb.pipeline --from-gcs "$@"
-    ;;
   dbt)
     exec dbt run \
       --project-dir /app/dbt/clairvoyance \
@@ -28,7 +25,7 @@ case "$PIPELINE" in
       "$@"
     ;;
   *)
-    echo "ERROR: Unknown PIPELINE='$PIPELINE'. Valid values: bank | bank-service | investment | cpf | cpf-service | ssb | dbt" >&2
+    echo "ERROR: Unknown PIPELINE='$PIPELINE'. Valid values: bank | bank-service | investment | cpf | cpf-service | dbt" >&2
     exit 1
     ;;
 esac

@@ -291,45 +291,6 @@ resource "google_cloud_run_v2_job" "investment" {
   depends_on = [google_project_service.apis]
 }
 
-resource "google_cloud_run_v2_job" "ssb" {
-  count    = local.image != "" ? 1 : 0
-  name     = "clairvoyance-ssb"
-  location = var.region
-
-  template {
-    template {
-      service_account = google_service_account.pipeline_sa.email
-      max_retries     = 1
-
-      containers {
-        image = local.image
-
-        env {
-          name  = "PIPELINE"
-          value = "ssb"
-        }
-
-        dynamic "env" {
-          for_each = local.common_plain_env
-          content {
-            name  = env.value.name
-            value = env.value.value
-          }
-        }
-
-        resources {
-          limits = {
-            cpu    = "1"
-            memory = "512Mi"
-          }
-        }
-      }
-    }
-  }
-
-  depends_on = [google_project_service.apis]
-}
-
 resource "google_cloud_run_v2_job" "dbt" {
   count    = local.image != "" ? 1 : 0
   name     = "clairvoyance-dbt"
@@ -409,26 +370,6 @@ resource "google_cloud_scheduler_job" "dbt_daily" {
   }
 
   depends_on = [google_cloud_run_v2_job.dbt]
-}
-
-# SSB: 1st of every month at 9am SGT (01:00 UTC)
-resource "google_cloud_scheduler_job" "ssb_monthly" {
-  count     = local.image != "" ? 1 : 0
-  name      = "clairvoyance-ssb-monthly"
-  region    = var.region
-  schedule  = "0 1 1 * *"
-  time_zone = "UTC"
-
-  http_target {
-    http_method = "POST"
-    uri         = "https://${var.region}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${var.project_id}/jobs/clairvoyance-ssb:run"
-
-    oauth_token {
-      service_account_email = google_service_account.pipeline_sa.email
-    }
-  }
-
-  depends_on = [google_cloud_run_v2_job.ssb]
 }
 
 # ── Cloud Run Service — bank pipeline (Eventarc target) ───────────────────────
