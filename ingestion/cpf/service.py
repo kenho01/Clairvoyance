@@ -39,7 +39,7 @@ def handle_event():
     try:
         run(
             pdf_path=pdf_path,
-            bucket_name=os.environ.get("GCS_BUCKET_BANK", ""),
+            bucket_name=os.environ.get("GCS_BUCKET_CPF", ""),
             project_id=os.environ.get("GCP_PROJECT_ID", ""),
         )
     finally:

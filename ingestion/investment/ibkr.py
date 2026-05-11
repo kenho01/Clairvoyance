@@ -13,6 +13,7 @@ from google.cloud import bigquery
 from ingestion.investment.fx import get_rate_to_sgd
 from ingestion.investment.models import Position
 
+
 _SEND_URL = "https://gdcdyn.interactivebrokers.com/Universal/servlet/FlexStatementService.SendRequest"
 _GET_URL  = "https://gdcdyn.interactivebrokers.com/Universal/servlet/FlexStatementService.GetStatement"
 

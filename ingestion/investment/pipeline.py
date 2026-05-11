@@ -25,10 +25,7 @@ def _fetch_all(sources: list[str], project_id: str = "") -> list[Position]:
     positions = []
     for source in sources:
         try:
-            if source == "ibkr":
-                positions.extend(ibkr.fetch_positions(project_id=project_id))
-            else:
-                positions.extend(_SOURCE_MAP[source]())
+            positions.extend(_SOURCE_MAP[source](project_id=project_id))
         except Exception as e:
             print(f"WARNING: {source} fetch failed — {e}")
     return positions

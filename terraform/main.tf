@@ -24,6 +24,8 @@ resource "google_project_service" "apis" {
     "cloudbuild.googleapis.com",
     "artifactregistry.googleapis.com",
     "secretmanager.googleapis.com",
+    "monitoring.googleapis.com",
+    "logging.googleapis.com",
   ])
   service            = each.key
   disable_on_destroy = false
@@ -123,6 +125,7 @@ resource "google_project_iam_member" "sa_roles" {
   role    = each.key
   member  = "serviceAccount:${google_service_account.pipeline_sa.email}"
 }
+
 
 # ── Secret Manager ─────────────────────────────────────────────────────────────
 locals {

@@ -94,12 +94,12 @@ def run(pdf_path: Path, bucket_name: str, project_id: str) -> pd.DataFrame:
     }])
 
     month_prefix = snapshot.statement_date.strftime("%Y-%m")
-    gcs_path     = f"raw/cpf/{month_prefix}/cpf_{month_prefix}.parquet"
+    gcs_path     = f"raw/{month_prefix}/cpf_{month_prefix}.parquet"
 
     if bucket_name:
         _upload_parquet_to_gcs(df, bucket_name, gcs_path, project_id)
     else:
-        print("GCS_BUCKET_BANK not set — skipping GCS upload")
+        print("GCS_BUCKET_CPF not set — skipping GCS upload")
 
     if project_id:
         _load_to_bigquery(df, project_id)
@@ -111,7 +111,7 @@ def run(pdf_path: Path, bucket_name: str, project_id: str) -> pd.DataFrame:
 
 def main() -> None:
     load_dotenv()
-    bucket     = os.environ.get("GCS_BUCKET_BANK", "")
+    bucket     = os.environ.get("GCS_BUCKET_CPF", "")
     project_id = os.environ.get("GCP_PROJECT_ID", "")
 
     ce_subject = os.environ.get("CE_SUBJECT", "")
