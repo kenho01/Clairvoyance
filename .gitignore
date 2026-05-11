@@ -13,6 +13,7 @@ terraform/terraform.tfstate.backup
 # dbt compiled output (contains hardcoded project IDs)
 dbt/clairvoyance/target/
 dbt/clairvoyance/logs/
+dbt/clairvoyance/.user.yml
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -8,6 +8,7 @@ import xml.etree.ElementTree as ET
 import pandas as pd
 import requests
 from dotenv import load_dotenv
+from google.cloud import bigquery
 
 from ingestion.investment.fx import get_rate_to_sgd
 from ingestion.investment.models import Position
@@ -110,22 +111,68 @@ def _parse_positions(csv_text: str) -> list[Position]:
     return positions
 
 
+def _fallback_from_bigquery(project_id: str) -> list[Position]:
+    client = bigquery.Client(project=project_id)
+    query = f"""
+        SELECT symbol, asset_class, quantity, price, market_value,
+               currency, fx_rate_to_sgd, market_value_sgd
+        FROM `{project_id}.ods.ods_investment_positions_df`
+        WHERE source = 'ibkr'
+          AND date = (
+              SELECT MAX(date)
+              FROM `{project_id}.ods.ods_investment_positions_df`
+              WHERE source = 'ibkr'
+          )
+        QUALIFY ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY etl_time DESC) = 1
+    """
+    rows = list(client.query(query).result())
+    return [
+        Position(
+            source="ibkr",
+            symbol=row.symbol,
+            asset_class=row.asset_class,
+            quantity=row.quantity,
+            price=row.price,
+            market_value=row.market_value,
+            currency=row.currency,
+            fx_rate_to_sgd=row.fx_rate_to_sgd,
+            market_value_sgd=row.market_value_sgd,
+        )
+        for row in rows
+    ]
+
+
 def fetch_positions(
     token: str | None = None,
     query_id: str | None = None,
+    project_id: str | None = None,
 ) -> list[Position]:
-    token    = token    or os.environ["IBKR_FLEX_TOKEN"]
-    query_id = query_id or os.environ["IBKR_FLEX_QUERY_ID"]
+    token      = token      or os.environ["IBKR_FLEX_TOKEN"]
+    query_id   = query_id   or os.environ["IBKR_FLEX_QUERY_ID"]
+    project_id = project_id or os.environ.get("GCP_PROJECT_ID", "")
 
-    print("IBKR: requesting Flex Query report...")
-    ref_code = _request_report(token, query_id)
+    try:
+        print("IBKR: requesting Flex Query report...")
+        ref_code = _request_report(token, query_id)
 
-    print(f"IBKR: downloading report (ref={ref_code})...")
-    csv_text = _download_report(token, ref_code)
+        print(f"IBKR: downloading report (ref={ref_code})...")
+        csv_text = _download_report(token, ref_code)
 
-    positions = _parse_positions(csv_text)
-    print(f"IBKR: {len(positions)} positions fetched")
-    return positions
+        positions = _parse_positions(csv_text)
+        print(f"IBKR: {len(positions)} positions fetched")
+        return positions
+    except Exception as e:
+        print(f"IBKR: fetch failed ({e}) — falling back to latest BigQuery data")
+        if not project_id:
+            print("IBKR: GCP_PROJECT_ID not set, cannot fall back")
+            return []
+        try:
+            positions = _fallback_from_bigquery(project_id)
+            print(f"IBKR: using {len(positions)} positions from latest history (fallback)")
+            return positions
+        except Exception as bq_err:
+            print(f"IBKR: BigQuery fallback also failed — {bq_err}")
+            return []
 
 
 if __name__ == "__main__":

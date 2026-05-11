@@ -21,11 +21,14 @@ _SOURCE_MAP = {
 _BQ_TABLE = "ods.ods_investment_positions_df"
 
 
-def _fetch_all(sources: list[str]) -> list[Position]:
+def _fetch_all(sources: list[str], project_id: str = "") -> list[Position]:
     positions = []
     for source in sources:
         try:
-            positions.extend(_SOURCE_MAP[source]())
+            if source == "ibkr":
+                positions.extend(ibkr.fetch_positions(project_id=project_id))
+            else:
+                positions.extend(_SOURCE_MAP[source]())
         except Exception as e:
             print(f"WARNING: {source} fetch failed — {e}")
     return positions
@@ -72,7 +75,7 @@ def _load_to_bigquery(df: pd.DataFrame, project_id: str) -> None:
 
 
 def run(sources: list[str], bucket_name: str, project_id: str) -> pd.DataFrame:
-    positions = _fetch_all(sources)
+    positions = _fetch_all(sources, project_id=project_id)
     if not positions:
         print("No positions fetched — skipping")
         return pd.DataFrame()
