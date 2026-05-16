@@ -98,6 +98,7 @@ final as (
         date,
         stocks_sgd,
         crypto_sgd,
+        round(stocks_sgd + crypto_sgd, 2) as investment_sgd,
         coalesce(cash_sgd, 0)  as cash_sgd,
         coalesce(endowus_principal_sgd, 0)  as endowus_principal_sgd,
         coalesce(cpf_oa_sgd, 0)  as cpf_oa_sgd,

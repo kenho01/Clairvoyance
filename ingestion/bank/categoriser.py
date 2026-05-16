@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 
 import anthropic
 
@@ -24,42 +25,22 @@ CATEGORIES = [
     "Other",
 ]
 
-_SYSTEM_PROMPT = f"""\
-You are a personal finance assistant based in Singapore. Your job is to classify \
-bank transactions into spending categories.
+_PROMPT_BASE_PATH     = Path(__file__).parent / "prompt_base.txt"
+_PROMPT_PERSONAL_PATH = Path(__file__).parent / "prompt_personal.txt"
 
-Rules:
-- Choose exactly one category from this list: {json.dumps(CATEGORIES)}
-- Return ONLY a JSON array of objects with keys "index" and "category"
-- Do not include any explanation or extra text
-- "index" is the 0-based position of the transaction in the input list
-- Use Singapore context when making your classification (e.g. NETS, PayNow, PayLah, \
-  EZ-Link, TransitLink, HDB, CPF, SGX, CDP are all common Singapore payment methods)
 
-Specific merchant rules (override general classification):
-- TIMBRE → Dining
-- KOUFU, KOPITIAM, FOOD REPUBLIC, FOODFARE → Dining (Singapore food courts)
-- FAIRPRICE, GIANT, COLD STORAGE, SHENG SIONG, Prime Supermarket → Groceries
-- BUS/MRT, SMRT, SBS TRANSIT, EZ-LINK, TRANSIT → Transport
-- GRAB (ride) → Transport; GRAB (food) → Dining; use description context to distinguish
-- SINGTEL, STARHUB, M1, GOMO, CIRCLES.LIFE, REDONE → Utilities
-- SP DIGITAL, SP GROUP, CITY ENERGY → Utilities
-- SHOPEE, LAZADA, QXPRESS, NINJA VAN → Shopping
-- KLOOK → Travel
-- CLAUDE.AI, CHATGPT, OPENAI, NOTION, SPOTIFY, NETFLIX, YOUTUBE → Entertainment
-- Transfers to crypto exchanges (GEMINI, BINANCE, COINBASE, CRYPTO.COM) → Investment
-- Transfers to brokers (IBKR, INTERACTIVE BROKERS, TIGER, MOOMOO, SYFE) → Investment
-- Transfers to Endowus via UOB Kay Hian (description contains "UOB KAY HIAN") → Endowus
-- Transfers to YOU TECHNOLOGIES GRO  → Travel
-- PayNow/FAST transfers with amount < SGD 100 → Dining (likely splitting a meal bill or paying to merchant directly via QR code payment)
-- Otherwise PayNow/FAST transfers with amount > SGD 150 -> Label as Transfers
+def _load_system_prompt() -> str:
+    base = _PROMPT_BASE_PATH.read_text().format(categories=json.dumps(CATEGORIES))
 
-Example output:
-[
-  {{"index": 0, "category": "Dining"}},
-  {{"index": 1, "category": "Transport"}}
-]
-"""
+    # Env var takes precedence (GCP Secret Manager → Cloud Run); fall back to local file
+    personal = os.environ.get("PERSONAL_PROMPT_RULES", "").strip()
+    if not personal and _PROMPT_PERSONAL_PATH.exists():
+        personal = _PROMPT_PERSONAL_PATH.read_text().strip()
+
+    if personal:
+        base = base.rstrip() + "\n\nPersonal rules (take priority over all rules above):\n" + personal
+
+    return base
 
 _BATCH_SIZE = 40  # transactions per API call
 
@@ -108,8 +89,8 @@ def categorise(
             system=[
                 {
                     "type": "text",
-                    "text": _SYSTEM_PROMPT,
-                    "cache_control": {"type": "ephemeral"},  # cache system prompt
+                    "text": _load_system_prompt(),
+                    "cache_control": {"type": "ephemeral"},
                 }
             ],
             messages=[{"role": "user", "content": user_message}],

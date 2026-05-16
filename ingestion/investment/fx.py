@@ -6,6 +6,7 @@ import requests
 
 _BASE_URL = "https://open.er-api.com/v6/latest/SGD"
 _cache: dict[str, float] = {}
+_fx_source: str = ""
 
 
 def _fallback_rates_from_bigquery(project_id: str) -> dict[str, float]:
@@ -23,6 +24,7 @@ def _fallback_rates_from_bigquery(project_id: str) -> dict[str, float]:
 
 def get_rate_to_sgd(currency: str) -> float:
     """Return how many SGD 1 unit of `currency` is worth. Returns 1.0 for SGD."""
+    global _fx_source
     if currency == "SGD":
         return 1.0
 
@@ -35,6 +37,7 @@ def get_rate_to_sgd(currency: str) -> float:
             for ccy, rate in rates.items():
                 _cache[ccy] = round(1 / rate, 6) if rate else 0.0
             _cache["SGD"] = 1.0
+            _fx_source = "live"
         except Exception as e:
             print(f"WARNING: FX rate fetch failed ({e}) — falling back to latest BigQuery rates")
             if project_id:
@@ -43,7 +46,9 @@ def get_rate_to_sgd(currency: str) -> float:
                     _cache.update(bq_rates)
                     _cache["SGD"] = 1.0
                     print(f"FX: loaded {len(bq_rates)} rates from BigQuery fallback")
+                    _fx_source = "fallback"
                 except Exception as bq_err:
                     print(f"WARNING: FX BigQuery fallback also failed ({bq_err}) — non-SGD rates will be wrong")
+                    _fx_source = "failed"
 
     return _cache.get(currency, 1.0)

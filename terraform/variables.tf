@@ -86,3 +86,16 @@ variable "ibkr_flex_query_id" {
   sensitive   = true
   default     = ""
 }
+
+variable "telegram_bot_token" {
+  description = "Telegram bot token from @BotFather for daily pipeline reports"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "telegram_chat_id" {
+  description = "Telegram chat ID to send daily reports to"
+  type        = string
+  default     = ""
+}

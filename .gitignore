@@ -229,3 +229,5 @@ __marimo__/
 
 # Bank statements and personal financial documents
 assets/
+# Personal categorisation rules (stored in GCP Secret Manager for Cloud Run)
+ingestion/bank/prompt_personal.txt

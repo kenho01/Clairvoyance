@@ -3,12 +3,13 @@ from __future__ import annotations
 import argparse
 import io
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 import pandas as pd
 from dotenv import load_dotenv
 from google.cloud import bigquery, storage
 
+from ingestion.investment import fx as _fx_module
 from ingestion.investment import gemini, ibkr, tiger
 from ingestion.investment.models import Position
 
@@ -18,17 +19,70 @@ _SOURCE_MAP = {
     "gemini": gemini.fetch_positions,
 }
 
-_BQ_TABLE = "ods.ods_investment_positions_df"
+_BQ_TABLE        = "ods.ods_investment_positions_df"
+_BQ_STATUS_TABLE = "ods.pipeline_run_status"
 
 
-def _fetch_all(sources: list[str], project_id: str = "") -> list[Position]:
-    positions = []
+def _fetch_all(sources: list[str], project_id: str = "") -> tuple[list[Position], dict[str, dict]]:
+    positions: list[Position] = []
+    statuses:  dict[str, dict] = {}
     for source in sources:
+        status: dict = {}
+        statuses[source] = status
         try:
-            positions.extend(_SOURCE_MAP[source](project_id=project_id))
+            positions.extend(_SOURCE_MAP[source](project_id=project_id, _status=status))
         except Exception as e:
             print(f"WARNING: {source} fetch failed — {e}")
-    return positions
+            status.setdefault("status", "failed")
+            status.setdefault("row_count", 0)
+    return positions, statuses
+
+
+def _write_run_status(statuses: dict[str, dict], project_id: str) -> None:
+    sgt = timezone(timedelta(hours=8))
+    now = datetime.now(sgt)
+
+    records = []
+    for source, info in statuses.items():
+        records.append({
+            "run_date":  now.date(),
+            "run_time":  now,
+            "pipeline":  "investment",
+            "source":    source,
+            "status":    info.get("status", "unknown"),
+            "row_count": info.get("row_count"),
+            "message":   info.get("message", ""),
+        })
+
+    records.append({
+        "run_date":  now.date(),
+        "run_time":  now,
+        "pipeline":  "investment",
+        "source":    "fx",
+        "status":    _fx_module._fx_source or "unknown",
+        "row_count": None,
+        "message":   "",
+    })
+
+    df = pd.DataFrame(records)
+    client = bigquery.Client(project=project_id)
+    table_ref = f"{project_id}.{_BQ_STATUS_TABLE}"
+
+    job_config = bigquery.LoadJobConfig(
+        write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
+        schema=[
+            bigquery.SchemaField("run_date",  "DATE"),
+            bigquery.SchemaField("run_time",  "TIMESTAMP"),
+            bigquery.SchemaField("pipeline",  "STRING"),
+            bigquery.SchemaField("source",    "STRING"),
+            bigquery.SchemaField("status",    "STRING"),
+            bigquery.SchemaField("row_count", "INT64"),
+            bigquery.SchemaField("message",   "STRING"),
+        ],
+    )
+    job = client.load_table_from_dataframe(df, table_ref, job_config=job_config)
+    job.result()
+    print(f"Run status written ({len(records)} source records)")
 
 
 def _upload_parquet_to_gcs(df: pd.DataFrame, bucket_name: str, project_id: str) -> None:
@@ -72,9 +126,14 @@ def _load_to_bigquery(df: pd.DataFrame, project_id: str) -> None:
 
 
 def run(sources: list[str], bucket_name: str, project_id: str) -> pd.DataFrame:
-    positions = _fetch_all(sources, project_id=project_id)
+    positions, statuses = _fetch_all(sources, project_id=project_id)
     if not positions:
         print("No positions fetched — skipping")
+        if project_id:
+            try:
+                _write_run_status(statuses, project_id)
+            except Exception as e:
+                print(f"WARNING: Could not write run status — {e}")
         return pd.DataFrame()
 
     df = pd.DataFrame([p.to_dict() for p in positions])
@@ -99,6 +158,10 @@ def run(sources: list[str], bucket_name: str, project_id: str) -> pd.DataFrame:
         except Exception as e:
             print(f"ERROR: BigQuery load failed — {e}")
             raise
+        try:
+            _write_run_status(statuses, project_id)
+        except Exception as e:
+            print(f"WARNING: Could not write run status — {e}")
     else:
         print("GCP_PROJECT_ID not set — skipping BigQuery load")
 

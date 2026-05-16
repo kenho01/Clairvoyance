@@ -147,6 +147,7 @@ def fetch_positions(
     token: str | None = None,
     query_id: str | None = None,
     project_id: str | None = None,
+    _status: dict | None = None,
 ) -> list[Position]:
     token      = token      or os.environ["IBKR_FLEX_TOKEN"]
     query_id   = query_id   or os.environ["IBKR_FLEX_QUERY_ID"]
@@ -161,18 +162,31 @@ def fetch_positions(
 
         positions = _parse_positions(csv_text)
         print(f"IBKR: {len(positions)} positions fetched")
+        if _status is not None:
+            _status["status"] = "live"
+            _status["row_count"] = len(positions)
         return positions
     except Exception as e:
         print(f"IBKR: fetch failed ({e}) — falling back to latest BigQuery data")
+        if _status is not None:
+            _status["status"] = "fallback"
         if not project_id:
             print("IBKR: GCP_PROJECT_ID not set, cannot fall back")
+            if _status is not None:
+                _status["status"] = "failed"
+                _status["row_count"] = 0
             return []
         try:
             positions = _fallback_from_bigquery(project_id)
             print(f"IBKR: using {len(positions)} positions from latest history (fallback)")
+            if _status is not None:
+                _status["row_count"] = len(positions)
             return positions
         except Exception as bq_err:
             print(f"IBKR: BigQuery fallback also failed — {bq_err}")
+            if _status is not None:
+                _status["status"] = "failed"
+                _status["row_count"] = 0
             return []
 
 

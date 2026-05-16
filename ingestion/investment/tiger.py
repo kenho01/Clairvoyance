@@ -63,7 +63,10 @@ def _fallback_from_bigquery(project_id: str) -> list[Position]:
     ]
 
 
-def fetch_positions(project_id: str | None = None) -> list[Position]:
+def fetch_positions(
+    project_id: str | None = None,
+    _status: dict | None = None,
+) -> list[Position]:
     project_id = project_id or os.environ.get("GCP_PROJECT_ID", "")
 
     try:
@@ -96,18 +99,31 @@ def fetch_positions(project_id: str | None = None) -> list[Position]:
             )
 
         print(f"Tiger Brokers: {len(positions)} positions fetched")
+        if _status is not None:
+            _status["status"] = "live"
+            _status["row_count"] = len(positions)
         return positions
     except Exception as e:
         print(f"Tiger: fetch failed ({e}) — falling back to latest BigQuery data")
+        if _status is not None:
+            _status["status"] = "fallback"
         if not project_id:
             print("Tiger: GCP_PROJECT_ID not set, cannot fall back")
+            if _status is not None:
+                _status["status"] = "failed"
+                _status["row_count"] = 0
             return []
         try:
             positions = _fallback_from_bigquery(project_id)
             print(f"Tiger: using {len(positions)} positions from latest history (fallback)")
+            if _status is not None:
+                _status["row_count"] = len(positions)
             return positions
         except Exception as bq_err:
             print(f"Tiger: BigQuery fallback also failed — {bq_err}")
+            if _status is not None:
+                _status["status"] = "failed"
+                _status["row_count"] = 0
             return []
 
 

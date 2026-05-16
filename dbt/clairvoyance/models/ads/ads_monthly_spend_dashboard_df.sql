@@ -10,6 +10,7 @@ with_mom as (
         total_credit,
         net_spend,
         tx_count,
+        year_month = format_date('%Y-%m', date_sub(date_trunc(current_date(), month), interval 1 month)) as is_previous_month,
         lag(net_spend) over (partition by category order by year_month) as prev_month_spend,
         round(
             net_spend - lag(net_spend) over (partition by category order by year_month),

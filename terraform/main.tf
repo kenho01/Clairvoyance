@@ -138,6 +138,7 @@ locals {
     "tiger_private_key",
     "ibkr_flex_token",
     "ibkr_flex_query_id",
+    "telegram_bot_token",
   ])
 
   secret_values = {
@@ -149,6 +150,7 @@ locals {
     tiger_private_key  = var.tiger_private_key
     ibkr_flex_token    = var.ibkr_flex_token
     ibkr_flex_query_id = var.ibkr_flex_query_id
+    telegram_bot_token = var.telegram_bot_token
   }
 
   image = var.pipeline_image
@@ -355,6 +357,61 @@ resource "google_cloud_scheduler_job" "investment_daily" {
   depends_on = [google_cloud_run_v2_job.investment]
 }
 
+# ── Cloud Run Job — daily reporter ────────────────────────────────────────────
+resource "google_cloud_run_v2_job" "reporter" {
+  count    = local.image != "" ? 1 : 0
+  name     = "clairvoyance-reporter"
+  location = var.region
+
+  template {
+    template {
+      service_account = google_service_account.pipeline_sa.email
+      max_retries     = 0
+
+      containers {
+        image = local.image
+
+        env {
+          name  = "PIPELINE"
+          value = "reporter"
+        }
+
+        dynamic "env" {
+          for_each = local.common_plain_env
+          content {
+            name  = env.value.name
+            value = env.value.value
+          }
+        }
+
+        env {
+          name  = "TELEGRAM_CHAT_ID"
+          value = var.telegram_chat_id
+        }
+
+        env {
+          name = "TELEGRAM_BOT_TOKEN"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.secrets["telegram_bot_token"].secret_id
+              version = "latest"
+            }
+          }
+        }
+
+        resources {
+          limits = {
+            cpu    = "1"
+            memory = "512Mi"
+          }
+        }
+      }
+    }
+  }
+
+  depends_on = [google_project_service.apis]
+}
+
 # dbt: daily at 6:30am SGT (22:30 UTC previous day) — 30 min after investment pipeline
 resource "google_cloud_scheduler_job" "dbt_daily" {
   count     = local.image != "" ? 1 : 0
@@ -373,6 +430,26 @@ resource "google_cloud_scheduler_job" "dbt_daily" {
   }
 
   depends_on = [google_cloud_run_v2_job.dbt]
+}
+
+# Reporter: daily at 7:00am SGT (23:00 UTC) — 30 min after dbt
+resource "google_cloud_scheduler_job" "reporter_daily" {
+  count     = local.image != "" ? 1 : 0
+  name      = "clairvoyance-reporter-daily"
+  region    = var.region
+  schedule  = "0 23 * * *"
+  time_zone = "UTC"
+
+  http_target {
+    http_method = "POST"
+    uri         = "https://${var.region}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${var.project_id}/jobs/clairvoyance-reporter:run"
+
+    oauth_token {
+      service_account_email = google_service_account.pipeline_sa.email
+    }
+  }
+
+  depends_on = [google_cloud_run_v2_job.reporter]
 }
 
 # ── Cloud Run Service — bank pipeline (Eventarc target) ───────────────────────

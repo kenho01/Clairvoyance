@@ -83,6 +83,7 @@ def fetch_positions(
     api_key: str | None = None,
     api_secret: str | None = None,
     project_id: str | None = None,
+    _status: dict | None = None,
 ) -> list[Position]:
     api_key    = api_key    or os.environ["GEMINI_API_KEY"]
     api_secret = api_secret or os.environ["GEMINI_API_SECRET"]
@@ -128,18 +129,31 @@ def fetch_positions(
             )
 
         print(f"Gemini: {len(positions)} balances fetched")
+        if _status is not None:
+            _status["status"] = "live"
+            _status["row_count"] = len(positions)
         return positions
     except Exception as e:
         print(f"Gemini: fetch failed ({e}) — falling back to latest BigQuery data")
+        if _status is not None:
+            _status["status"] = "fallback"
         if not project_id:
             print("Gemini: GCP_PROJECT_ID not set, cannot fall back")
+            if _status is not None:
+                _status["status"] = "failed"
+                _status["row_count"] = 0
             return []
         try:
             positions = _fallback_from_bigquery(project_id)
             print(f"Gemini: using {len(positions)} positions from latest history (fallback)")
+            if _status is not None:
+                _status["row_count"] = len(positions)
             return positions
         except Exception as bq_err:
             print(f"Gemini: BigQuery fallback also failed — {bq_err}")
+            if _status is not None:
+                _status["status"] = "failed"
+                _status["row_count"] = 0
             return []
 
 

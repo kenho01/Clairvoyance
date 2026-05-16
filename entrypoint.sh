@@ -24,8 +24,11 @@ case "$PIPELINE" in
       --target prod \
       "$@"
     ;;
+  reporter)
+    exec python -m ingestion.reporter.pipeline "$@"
+    ;;
   *)
-    echo "ERROR: Unknown PIPELINE='$PIPELINE'. Valid values: bank | bank-service | investment | cpf | cpf-service | dbt" >&2
+    echo "ERROR: Unknown PIPELINE='$PIPELINE'. Valid values: bank | bank-service | investment | cpf | cpf-service | dbt | reporter" >&2
     exit 1
     ;;
 esac
