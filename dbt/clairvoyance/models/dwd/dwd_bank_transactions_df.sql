@@ -76,3 +76,4 @@ cleaned as (
 )
 
 select * from cleaned
+qualify row_number() over (partition by transaction_id order by etl_time desc) = 1

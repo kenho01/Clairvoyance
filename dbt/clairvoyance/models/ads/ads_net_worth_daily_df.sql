@@ -7,11 +7,24 @@ with investment_daily as (
     group by date
 ),
 
+bank_balances_deduped as (
+    select *
+    from (
+        select *,
+            row_number() over (
+                partition by statement_date, source_file
+                order by etl_time desc
+            ) as rn
+        from `{{ env_var('GCP_PROJECT_ID') }}.ods.ods_account_balances_df`
+    )
+    where rn = 1
+),
+
 bank_balances as (
     select
-        cast(concat(statement_date, '-01') as date)  as date,
+        cast(concat(statement_date, '-01') as date) as date,
         round(sum(balance), 2) as cash_sgd
-    from `{{ env_var('GCP_PROJECT_ID') }}.ods.ods_account_balances_df`
+    from bank_balances_deduped
     group by date
 ),
 
@@ -45,12 +58,28 @@ cpf_balances as (
     from cpf_latest
 ),
 
+ods_bank_deduped as (
+    select * from (
+        select *,
+            row_number() over (
+                partition by to_hex(md5(concat(
+                    coalesce(source_file, ''),
+                    coalesce(date, ''),
+                    coalesce(description, ''),
+                    coalesce(cast(amount as string), '')
+                )))
+                order by etl_time desc
+            ) as rn
+        from `{{ env_var('GCP_PROJECT_ID') }}.ods.ods_bank_transactions_df`
+    ) where rn = 1
+),
+
 endowus_monthly as (
     select
         date_trunc(parse_date('%d %b %Y', date), month) as month,
         round(sum(abs(amount)), 2) as monthly_sgd
-    from `{{ env_var('GCP_PROJECT_ID') }}.ods.ods_bank_transactions_df`
-    where category = 'Endowus'
+    from ods_bank_deduped
+    where (category = 'Endowus' or upper(description) like '%UOB KAY HIAN%')
       and amount < 0
     group by 1
 ),
